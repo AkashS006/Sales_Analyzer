@@ -1,0 +1,40 @@
+╔══════════════════════════════════════╗
+║   SALES DATA ANALYSIS SUMMARY       ║
+╚══════════════════════════════════════╝
+Generated on: 2026-04-14 10:30:04 
+
+── DATASET OVERVIEW ──────────────────
+Total rows          : 9140 
+Total columns       : 30 
+Date range          : 2023-01-01 to 2024-03-30
+Unique customers    : 300 
+Unique products     : 105 
+Unique categories   : 10 
+Cities covered      : 10 
+
+── REVENUE SUMMARY ───────────────────
+Total Revenue    : Rs 204,924,098 
+Avg per txn      : Rs 22,420.58 
+Max single txn   : Rs 376,130 
+Min single txn   : Rs 130 
+
+── TOP PERFORMERS ────────────────────
+Top Category  : Electronics
+Top Product   : MacBook Air M2
+Top City      : Bangalore
+Top Segment   : VIP
+Top Channel   : Online
+Top Payment   : UPI
+
+── RFM SEGMENTS ──────────────────────
+              Segment Count Percent
+1     Loyal Customers    92   30.7%
+2                Lost    85   28.3%
+3           Champions    63     21%
+4 Potential Loyalists    58   19.3%
+5       New Customers     2    0.7%
+
+── DATA QUALITY ──────────────────────
+Missing values      : 0
+Duplicate rows      : 0
+Validation checks   : 12/12 PASSED
