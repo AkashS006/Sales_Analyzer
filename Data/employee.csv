@@ -1,0 +1,21 @@
+employee_id,employee_name,gender,mobile_number,role,city,join_date
+EMP001,Ayush Jadhav,Male,8852500206,Inventory Manager,Pune,2024-12-29
+EMP002,Gargi Balaji,Female,7690562807,Sales Executive,Bangalore,2023-09-27
+EMP003,Swati Khanna,Female,9976220238,Inventory Manager,Jaipur,2023-12-08
+EMP004,Geeta Sethi,Female,9991114786,Team Lead,Kolkata,2024-03-25
+EMP005,Anika Mishra,Female,7611412623,Customer Support,Kolkata,2023-04-28
+EMP006,Shivam Doshi,Male,9250709845,Sales Executive,Pune,2019-09-29
+EMP007,Ishita Hussain,Female,7094397223,Team Lead,Chennai,2021-11-17
+EMP008,Falak Bose,Female,7984056092,Billing Executive,Chennai,2020-04-07
+EMP009,Harish Iyer,Male,9963265206,Sales Executive,Jaipur,2024-12-02
+EMP010,Akanksha Patil,Female,8001476482,Billing Executive,Pune,2021-11-07
+EMP011,Rohit Ganesh,Male,9948751959,Floor Manager,Hyderabad,2022-04-27
+EMP012,Meera Sundar,Female,9598729805,Sales Associate,Delhi,2023-07-04
+EMP013,Mahesh Menon,Male,9234305057,Team Lead,Hyderabad,2022-01-03
+EMP014,Praveen Shaikh,Male,9291130462,Sales Associate,Surat,2019-01-14
+EMP015,Supriya Banerjee,Female,7339250971,Billing Executive,Pune,2023-10-02
+EMP016,Urmila Krishnan,Female,9942720968,Cashier,Pune,2021-07-22
+EMP017,Sarita Mittal,Female,9700123928,Customer Support,Kolkata,2022-03-30
+EMP018,Rashmi Qureshi,Female,9748972403,Team Lead,Surat,2023-10-15
+EMP019,Meera Dubey,Female,8983527616,Sales Associate,Bangalore,2024-08-04
+EMP020,Vikas Patil,Male,8504646345,Sales Associate,Bangalore,2022-12-18

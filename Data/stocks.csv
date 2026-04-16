@@ -1,0 +1,106 @@
+product_id,product_name,category,quantity,unit_price,added_date
+PRD001,PS5,Electronics,10,51179.67,2023-01-03
+PRD002,iPhone 15,Electronics,372,81630.11,2024-11-07
+PRD003,Samsung Galaxy S24,Electronics,386,70568.71,2024-08-20
+PRD004,MacBook Air M2,Electronics,496,97874.96,2024-07-18
+PRD005,Dell Laptop,Electronics,116,53780.53,2023-04-07
+PRD006,Sony Headphones,Electronics,374,9107.58,2024-06-10
+PRD007,Apple Watch,Electronics,237,41386.67,2024-11-06
+PRD008,Smart TV 55 inch,Electronics,454,45331.08,2024-07-16
+PRD009,Canon DSLR Camera,Electronics,308,35638.09,2023-08-19
+PRD010,JBL Bluetooth Speaker,Electronics,147,5135.48,2024-08-06
+PRD011,OnePlus Nord 4,Electronics,469,27692.34,2024-09-17
+PRD012,iPad Air,Electronics,345,60403.51,2024-04-04
+PRD013,Gaming Mouse,Electronics,283,2467.98,2024-12-29
+PRD014,Mechanical Keyboard,Electronics,363,4117.64,2024-05-28
+PRD015,USB-C Hub,Electronics,352,1983.6,2023-03-04
+PRD016,Men's Formal Shirt,Clothing,259,1301.32,2024-03-08
+PRD017,Women's Kurti,Clothing,245,887.97,2024-10-02
+PRD018,Denim Jeans,Clothing,316,2043.55,2023-02-12
+PRD019,Sports T-Shirt,Clothing,71,679.52,2024-05-18
+PRD020,Winter Jacket,Clothing,335,3462.66,2023-06-13
+PRD021,Saree,Clothing,64,2500.48,2024-09-05
+PRD022,Kids Dress,Clothing,258,789.3,2023-09-09
+PRD023,Leggings,Clothing,349,512.86,2023-11-05
+PRD024,Formal Trousers,Clothing,114,1567.81,2023-05-02
+PRD025,Hoodie,Clothing,486,1912.02,2023-05-29
+PRD026,Basmati Rice 5kg,Groceries,91,508.85,2024-01-18
+PRD027,Toor Dal 1kg,Groceries,488,148.76,2024-01-08
+PRD028,Sunflower Oil 1L,Groceries,92,184.29,2024-06-01
+PRD029,Amul Butter 500g,Groceries,17,267.81,2024-02-04
+PRD030,Sugar 1kg,Groceries,143,53.51,2023-08-18
+PRD031,Aashirvaad Atta 10kg,Groceries,253,440.4,2024-06-11
+PRD032,Nescafe Coffee 200g,Groceries,29,399.91,2024-08-21
+PRD033,Bournvita 1kg,Groceries,189,414.19,2024-04-22
+PRD034,Himalaya Honey 500g,Groceries,219,294.87,2024-08-07
+PRD035,Mixed Dry Fruits 500g,Groceries,367,689.04,2024-02-22
+PRD036,Office Chair,Furniture,283,9239.93,2023-07-24
+PRD037,Study Table,Furniture,316,6375.02,2023-01-09
+PRD038,Bookshelf,Furniture,279,5100.36,2024-06-12
+PRD039,Sofa Set 3+1+1,Furniture,247,34427.58,2024-08-10
+PRD040,Queen Bed Frame,Furniture,308,18045.75,2023-07-17
+PRD041,Dining Table 6 Seat,Furniture,174,21429.67,2023-11-28
+PRD042,Wardrobe 3 Door,Furniture,341,15441.81,2023-04-10
+PRD043,Coffee Table,Furniture,74,4479.39,2024-04-20
+PRD044,TV Unit,Furniture,230,7544.67,2024-10-04
+PRD045,Bean Bag,Furniture,303,2923.0,2024-04-25
+PRD046,Cricket Bat,Sports,323,2503.94,2024-04-03
+PRD047,Football,Sports,289,792.41,2023-02-19
+PRD048,Badminton Racket Set,Sports,415,1266.49,2023-09-01
+PRD049,Yoga Mat,Sports,22,990.13,2024-05-17
+PRD050,Dumbbells Set 10kg,Sports,100,2218.57,2023-03-27
+PRD051,Cycling Helmet,Sports,307,1476.65,2023-06-05
+PRD052,Skipping Rope,Sports,274,303.02,2024-10-11
+PRD053,Tennis Racket,Sports,166,3520.9,2023-09-30
+PRD054,Swimming Goggles,Sports,168,712.77,2023-05-06
+PRD055,Treadmill,Sports,336,33953.2,2024-07-23
+PRD056,Atomic Habits,Books,300,391.36,2024-01-31
+PRD057,Rich Dad Poor Dad,Books,395,307.84,2023-06-05
+PRD058,The Alchemist,Books,89,242.73,2024-07-30
+PRD059,Python Crash Course,Books,85,614.39,2024-05-15
+PRD060,Clean Code,Books,160,683.04,2023-03-07
+PRD061,Wings of Fire,Books,71,305.72,2023-09-14
+PRD062,Data Structures Guide,Books,278,556.51,2023-01-02
+PRD063,Business Sutra,Books,26,455.61,2023-04-17
+PRD064,Zero to One,Books,234,405.73,2023-06-22
+PRD065,Deep Work,Books,490,339.41,2023-01-31
+PRD066,LEGO Classic Set,Toys,378,3045.91,2023-08-13
+PRD067,Remote Control Car,Toys,262,1533.6,2024-05-05
+PRD068,Barbie Doll House,Toys,43,3935.18,2023-03-11
+PRD069,Rubik's Cube,Toys,443,401.45,2024-11-12
+PRD070,Board Game Monopoly,Toys,228,995.92,2024-09-23
+PRD071,Hot Wheels Track Set,Toys,243,1279.02,2024-01-11
+PRD072,Play-Doh Kit,Toys,148,596.85,2023-09-15
+PRD073,Puzzle 1000 Pieces,Toys,261,822.36,2023-10-08
+PRD074,Action Figure Set,Toys,427,887.94,2024-10-18
+PRD075,Baby Walker,Toys,381,2546.86,2023-03-14
+PRD076,Lakme Foundation,Beauty,194,606.21,2023-09-06
+PRD077,Maybelline Lipstick,Beauty,448,410.58,2023-05-10
+PRD078,Nivea Body Lotion,Beauty,300,296.28,2023-02-21
+PRD079,Himalaya Face Wash,Beauty,14,151.11,2023-12-06
+PRD080,L'Oreal Shampoo,Beauty,404,398.67,2023-07-24
+PRD081,Nykaa Kajal,Beauty,104,151.66,2023-09-19
+PRD082,Biotique Face Cream,Beauty,34,242.1,2024-03-01
+PRD083,Dove Soap Pack 4,Beauty,201,202.53,2024-01-30
+PRD084,Set Wet Hair Gel,Beauty,307,151.38,2024-11-17
+PRD085,WOW Vitamin C Serum,Beauty,290,590.4,2023-02-19
+PRD086,Car Dashboard Camera,Automotive,453,4020.22,2024-07-27
+PRD087,Tyre Inflator,Automotive,171,2509.93,2023-04-03
+PRD088,Car Seat Cover Set,Automotive,243,1996.69,2024-11-30
+PRD089,Helmet Full Face,Automotive,105,2986.86,2023-07-03
+PRD090,Jump Starter Pack,Automotive,340,4899.29,2024-09-04
+PRD091,Car Vacuum Cleaner,Automotive,484,1462.35,2024-02-29
+PRD092,GPS Tracker,Automotive,83,2935.08,2024-06-05
+PRD093,Car Polish Kit,Automotive,303,888.45,2024-10-12
+PRD094,Bike Chain Lubricant,Automotive,333,291.45,2023-05-03
+PRD095,LED Car Headlight Set,Automotive,322,1825.34,2023-04-07
+PRD096,Stainless Steel Bottle,Other,74,601.01,2024-05-22
+PRD097,Wall Clock,Other,412,804.65,2023-12-27
+PRD098,Scented Candle Set,Other,85,495.11,2024-04-17
+PRD099,Umbrella,Other,316,393.88,2024-08-20
+PRD100,Travel Bag,Other,48,1951.89,2023-03-29
+PRD101,Photo Frame Set,Other,104,702.66,2024-01-06
+PRD102,Desk Organizer,Other,194,492.46,2024-12-10
+PRD103,Digital Weighing Scale,Other,452,972.94,2024-09-22
+PRD104,Air Freshener,Other,297,302.08,2024-06-01
+PRD105,Multicolour Pen Set,Other,481,202.34,2023-08-06
