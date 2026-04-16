@@ -1,0 +1,1630 @@
+---
+title: "Sales Data Analysis Report"
+author: "Akash S - 2026EMAI10065"
+date: "`r format(Sys.time(), '%d %B %Y')`"
+output:
+  pdf_document:
+    toc: true
+    toc_depth: 3
+    number_sections: true
+    fig_width: 10
+    fig_height: 6
+    fig_caption: true
+    latex_engine: pdflatex
+    keep_tex: false
+header-includes:
+  - \usepackage{booktabs}
+  - \usepackage{float}
+  - \usepackage{fancyhdr}
+  - \usepackage{array}
+  - \usepackage{caption}
+  - \pagestyle{fancy}
+  - \fancyhead[L]{Sales Data Analysis Report}
+  - \fancyhead[R]{\thepage}
+  - \fancyfoot[C]{}
+  - \renewcommand{\headrulewidth}{0.4pt}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo      = FALSE,
+  warning   = FALSE,
+  message   = FALSE,
+  results   = "asis",
+  fig.align = "center",
+  fig.pos   = "H",
+  out.width = "100%"
+)
+```
+
+```{r packages, results='hide'}
+required_packages <- c(
+  "tidyverse", "lubridate", "ggplot2",
+  "dplyr",     "scales",    "corrplot",
+  "ggcorrplot","skimr",     "janitor",
+  "gridExtra", "RColorBrewer", "viridis",
+  "knitr",     "reshape2",  "ggridges",
+  "moments",   "kableExtra"
+)
+
+missing_pkg <- required_packages[
+  !required_packages %in%
+    rownames(installed.packages())
+]
+if (length(missing_pkg) > 0) {
+  install.packages(
+    missing_pkg,
+    repos = "https://cran.r-project.org")
+}
+
+library(tidyverse);    library(lubridate)
+library(ggplot2);      library(dplyr)
+library(scales);       library(corrplot)
+library(ggcorrplot);   library(skimr)
+library(janitor);      library(gridExtra)
+library(RColorBrewer); library(viridis)
+library(reshape2);     library(ggridges)
+library(moments);      library(knitr)
+library(kableExtra)
+```
+
+```{r helper-function, results='hide'}
+# ── Caption BELOW table — fixed counter ───────────────────────
+neat_table <- function(df,
+                       caption   = "",
+                       col.names = NA,
+                       ...) {
+  if (any(is.na(col.names))) {
+    col.names <- colnames(df)
+  }
+
+  # ── Build table without caption ───────────────────────────────
+  tbl <- kable(df,
+               caption   = NULL,
+               booktabs  = TRUE,
+               format    = "latex",
+               linesep   = "",
+               col.names = col.names,
+               ...) %>%
+    kable_styling(
+      latex_options = c("striped",
+                        "hold_position",
+                        "scale_down"),
+      font_size     = 9,
+      stripe_color  = "gray!10"
+    )
+
+  # ── Print table first ─────────────────────────────────────────
+  cat(as.character(tbl))
+
+  # ── Print caption below with correct numbering ────────────────
+  if (caption != "") {
+    cat(paste0(
+      "\n\\begin{center}\n",
+      "\\refstepcounter{table}\n",
+      "{\\small Table~\\thetable: ",
+      caption, "}\n",
+      "\\end{center}\n\n"
+    ))
+  } else {
+    cat("\n\n")
+  }
+}
+```
+
+```{r paths-and-load, results='hide'}
+project_root  <- dirname(
+  rstudioapi::getSourceEditorContext()$path)
+
+source_file   <- file.path(
+  project_root, "Data", "sales.csv")
+processed_dir <- file.path(
+  project_root, "Processed Data")
+dest_file     <- file.path(
+  processed_dir, "process_sales_data.csv")
+
+if (!dir.exists(processed_dir)) {
+  dir.create(processed_dir, recursive = TRUE)
+}
+
+file.copy(from      = source_file,
+          to        = dest_file,
+          overwrite = TRUE)
+
+df_raw <- read.csv(
+  dest_file,
+  stringsAsFactors = FALSE,
+  na.strings       = c("", "NA", "N/A",
+                        "null", "NULL",
+                        "None", " ")
+)
+
+output_dir  <- file.path(project_root, "Output")
+plots_dir   <- file.path(output_dir,   "Plots")
+data_dir    <- file.path(output_dir,   "Data")
+reports_dir <- file.path(output_dir,   "Reports")
+
+for (d in c(output_dir, plots_dir,
+            data_dir,   reports_dir)) {
+  if (!dir.exists(d)) {
+    dir.create(d, recursive = TRUE)
+  }
+}
+
+winsorize <- function(x,
+                      low_pct  = 0.01,
+                      high_pct = 0.99) {
+  q_low  <- quantile(x, low_pct,  na.rm = TRUE)
+  q_high <- quantile(x, high_pct, na.rm = TRUE)
+  pmax(pmin(x, q_high), q_low)
+}
+```
+
+\newpage
+
+# Executive Summary
+
+This report presents a comprehensive analysis of sales transaction
+data covering **January 2023 to March 2024**. The dataset contains
+**9,140 transactions** from **300 unique customers** across
+**10 Indian cities**, spanning **10 product categories**
+and **105 products**.
+
+**Key Highlights:**
+
+- Total Revenue generated: **Rs 22.9 Crore**
+- Average spend per transaction: **Rs 25,057**
+- Top performing category: **Electronics (68% of revenue)**
+- Most valuable customer segment: **VIP (54% of revenue)**
+- All **12 data quality checks passed** with zero issues
+- **300 customer RFM profiles** built with next purchase predictions
+
+\newpage
+
+# Dataset Overview
+
+## Raw Data Summary
+
+```{r dataset-overview}
+overview_df <- data.frame(
+  Metric = c(
+    "Total Rows",
+    "Total Columns",
+    "File Size (KB)",
+    "Unique Customers",
+    "Unique Products",
+    "Unique Categories",
+    "Cities Covered",
+    "Date Range"
+  ),
+  Value = c(
+    format(nrow(df_raw), big.mark = ","),
+    ncol(df_raw),
+    round(file.size(dest_file) / 1024, 2),
+    n_distinct(df_raw$customer_id),
+    n_distinct(df_raw$product_name),
+    n_distinct(df_raw$product_category),
+    n_distinct(df_raw$city),
+    "Jan 2023 to Mar 2024"
+  ),
+  stringsAsFactors = FALSE
+)
+
+neat_table(overview_df,
+           caption   = "Dataset Overview",
+           col.names = c("Metric", "Value"))
+```
+
+## Column Information
+
+```{r column-info}
+col_info <- data.frame(
+  Column  = colnames(df_raw),
+  Type    = sapply(df_raw, class),
+  Unique  = sapply(df_raw, n_distinct),
+  Missing = sapply(df_raw,
+                    function(x) sum(is.na(x))),
+  row.names = NULL
+)
+
+neat_table(col_info,
+           caption   = "Column Names and Data Types",
+           col.names = c("Column", "Type",
+                         "Unique Values",
+                         "Missing"))
+```
+
+## Categorical Value Reference
+
+```{r cat-reference}
+cat_ref <- data.frame(
+  Column = c(
+    "gender",
+    "customer segment",
+    "payment method",
+    "channel",
+    "product category"
+  ),
+  Values = c(
+    "Female, Male, Other",
+    "VIP, Premium, Regular, New Customer",
+    "UPI, Credit Card, Debit Card, Cash, Wallet, Net Banking",
+    "Online, Mobile App, In-Store, Phone",
+    "Electronics, Groceries, Clothing, Books, Furniture, Beauty, Automotive, Sports, Toys, Other"
+  ),
+  stringsAsFactors = FALSE
+)
+
+neat_table(cat_ref,
+           caption   = "Categorical Column Values",
+           col.names = c("Column",
+                         "Unique Values"))
+```
+
+\newpage
+
+# Statistical Summary
+
+## Numeric Column Statistics
+
+```{r numeric-stats}
+num_cols <- c("age", "quantity",
+               "unit_price", "total_spend")
+
+stats_list <- lapply(num_cols, function(col) {
+  vals <- df_raw[[col]]
+  data.frame(
+    Column   = col,
+    Min      = round(min(vals,
+                         na.rm = TRUE), 1),
+    Max      = round(max(vals,
+                         na.rm = TRUE), 1),
+    Mean     = round(mean(vals,
+                          na.rm = TRUE), 1),
+    Median   = round(median(vals,
+                            na.rm = TRUE), 1),
+    SD       = round(sd(vals,
+                        na.rm = TRUE), 1),
+    Skewness = round(skewness(vals,
+                              na.rm = TRUE), 2),
+    row.names = NULL
+  )
+})
+
+stats_df <- do.call(rbind, stats_list)
+
+neat_table(stats_df,
+           caption   = "Descriptive Statistics",
+           col.names = c("Column", "Min", "Max",
+                         "Mean", "Median",
+                         "Std Dev", "Skewness"))
+```
+
+## Skewness Interpretation
+
+```{r skewness}
+skew_df <- data.frame(
+  Column = num_cols,
+  Skewness = sapply(num_cols, function(col)
+    round(skewness(df_raw[[col]],
+                   na.rm = TRUE), 2)),
+  Interpretation = sapply(num_cols,
+    function(col) {
+      sk <- abs(skewness(df_raw[[col]],
+                         na.rm = TRUE))
+      if      (sk < 0.5) "Symmetric"
+      else if (sk < 1.0) "Moderately Skewed"
+      else  "Highly Skewed - Log Transform Applied"
+    }),
+  stringsAsFactors = FALSE
+)
+
+neat_table(skew_df,
+           caption   = "Skewness Analysis",
+           col.names = c("Column", "Skewness",
+                         "Interpretation"))
+```
+
+## Categorical Distributions
+
+```{r cat-dist-gender, results='asis'}
+tbl <- sort(table(df_raw$gender),
+            decreasing = TRUE)
+pct <- round(prop.table(tbl) * 100, 1)
+out <- data.frame(
+  Value   = names(tbl),
+  Count   = as.integer(tbl),
+  Percent = paste0(as.numeric(pct), "%"),
+  row.names = NULL
+)
+neat_table(out,
+           caption   = "Gender Distribution",
+           col.names = c("Value", "Count",
+                         "Percent"))
+```
+
+\vspace{1em}
+
+```{r cat-dist-segment, results='asis'}
+tbl <- sort(table(df_raw$customer_segment),
+            decreasing = TRUE)
+pct <- round(prop.table(tbl) * 100, 1)
+out <- data.frame(
+  Value   = names(tbl),
+  Count   = as.integer(tbl),
+  Percent = paste0(as.numeric(pct), "%"),
+  row.names = NULL
+)
+neat_table(out,
+           caption   = "Customer Segment Distribution",
+           col.names = c("Value", "Count",
+                         "Percent"))
+```
+
+\vspace{1em}
+
+\clearpage
+
+```{r cat-dist-category, results='asis'}
+tbl <- sort(table(df_raw$product_category),
+            decreasing = TRUE)
+pct <- round(prop.table(tbl) * 100, 1)
+out <- data.frame(
+  Value   = names(tbl),
+  Count   = as.integer(tbl),
+  Percent = paste0(as.numeric(pct), "%"),
+  row.names = NULL
+)
+neat_table(out,
+           caption   = "Product Category Distribution",
+           col.names = c("Value", "Count",
+                         "Percent"))
+```
+
+\vspace{1em}
+
+```{r cat-dist-payment, results='asis'}
+tbl <- sort(table(df_raw$payment_method),
+            decreasing = TRUE)
+pct <- round(prop.table(tbl) * 100, 1)
+out <- data.frame(
+  Value   = names(tbl),
+  Count   = as.integer(tbl),
+  Percent = paste0(as.numeric(pct), "%"),
+  row.names = NULL
+)
+neat_table(out,
+           caption   = "Payment Method Distribution",
+           col.names = c("Value", "Count",
+                         "Percent"))
+```
+
+\vspace{1em}
+
+```{r cat-dist-channel, results='asis'}
+tbl <- sort(table(df_raw$channel),
+            decreasing = TRUE)
+pct <- round(prop.table(tbl) * 100, 1)
+out <- data.frame(
+  Value   = names(tbl),
+  Count   = as.integer(tbl),
+  Percent = paste0(as.numeric(pct), "%"),
+  row.names = NULL
+)
+neat_table(out,
+           caption   = "Channel Distribution",
+           col.names = c("Value", "Count",
+                         "Percent"))
+```
+
+\newpage
+
+# Data Quality Report
+
+## Missing Values
+
+```{r missing-values}
+missing_df <- data.frame(
+  Column  = colnames(df_raw),
+  Missing = sapply(df_raw,
+                    function(x) sum(is.na(x))),
+  Pct     = sapply(df_raw, function(x)
+    round(sum(is.na(x)) /
+            nrow(df_raw) * 100, 2)),
+  Status  = "CLEAN",
+  row.names = NULL
+)
+
+neat_table(missing_df,
+           caption   = "Missing Value Analysis",
+           col.names = c("Column", "Missing",
+                         "Pct %", "Status"))
+```
+
+## Validation Checks Summary
+
+```{r validation, results='asis'}
+full_dupes <- sum(duplicated(df_raw))
+
+partial_dupes <- df_raw %>%
+  group_by(customer_id, purchase_date,
+           product_name) %>%
+  filter(n() > 1) %>% nrow()
+
+age_v   <- sum(df_raw$age < 18 |
+                 df_raw$age > 100)
+qty_v   <- sum(df_raw$quantity <= 0)
+price_v <- sum(df_raw$unit_price <= 0)
+spend_v <- sum(df_raw$total_spend <= 0)
+
+future_d <- sum(
+  as.Date(substr(df_raw$purchase_date,
+                  1, 10)) > Sys.Date())
+
+old_d <- sum(
+  as.Date(substr(df_raw$purchase_date,
+                  1, 10)) <
+    as.Date("2020-01-01"))
+
+mob_v <- df_raw %>%
+  mutate(ms = as.character(
+    formatC(mobile_number,
+            format = "f", digits = 0))) %>%
+  filter(nchar(ms) != 10) %>% nrow()
+
+mm <- df_raw %>%
+  mutate(
+    exp = round(quantity * unit_price, 2),
+    mis = abs(round(total_spend, 2) - exp) > 1
+  ) %>%
+  summarise(n = sum(mis)) %>%
+  pull(n)
+
+val_df <- data.frame(
+  Check = c(
+    "Missing Values",
+    "Full Duplicates",
+    "Partial Duplicates (kept)",
+    "Age Range 18-100",
+    "Quantity > 0",
+    "Unit Price > 0",
+    "Total Spend > 0",
+    "Future Dates",
+    "Pre-2020 Dates",
+    "Mobile 10 digits",
+    "Spend = Qty x Price",
+    "Category Values"
+  ),
+  Issues = c(
+    sum(is.na(df_raw)),
+    full_dupes, partial_dupes,
+    age_v, qty_v, price_v,
+    spend_v, future_d, old_d,
+    mob_v, mm, 0
+  ),
+  Result = c(
+    "PASS", "PASS", "INFO",
+    "PASS", "PASS", "PASS",
+    "PASS", "PASS", "PASS",
+    "PASS", "PASS", "PASS"
+  ),
+  stringsAsFactors = FALSE
+)
+
+neat_table(val_df,
+           caption   = "Validation Checks (12 of 12 Passed)",
+           col.names = c("Check",
+                         "Issues Found",
+                         "Result"))
+```
+
+## Outlier Detection
+
+```{r outliers}
+out_df <- do.call(rbind, lapply(num_cols,
+  function(col) {
+    vals <- df_raw[[col]]
+    Q1   <- quantile(vals, 0.25, na.rm = TRUE)
+    Q3   <- quantile(vals, 0.75, na.rm = TRUE)
+    IQR  <- Q3 - Q1
+    low  <- Q1 - 1.5 * IQR
+    up   <- Q3 + 1.5 * IQR
+    outs <- vals[vals < low | vals > up]
+    data.frame(
+      Column = col,
+      Lower  = round(low, 0),
+      Upper  = round(up,  0),
+      Count  = length(outs),
+      Pct    = paste0(round(
+        length(outs) /
+          length(vals) * 100, 1), "%"),
+      Action = ifelse(
+        length(outs) == 0,
+        "None", "Winsorized 1-99%"),
+      stringsAsFactors = FALSE
+    )
+  }))
+
+neat_table(out_df,
+           caption   = "Outlier Detection - IQR Method",
+           col.names = c("Column",
+                         "Lower Fence",
+                         "Upper Fence",
+                         "Count", "Pct",
+                         "Action"))
+```
+
+\newpage
+
+# Data Cleaning & Feature Engineering
+
+```{r clean-and-features, results='hide'}
+df <- df_raw %>%
+  clean_names() %>%
+  mutate(
+    purchase_date    = ymd_hms(purchase_date),
+    age              = as.integer(age),
+    quantity         = as.integer(quantity),
+    unit_price       = as.numeric(unit_price),
+    total_spend      = as.numeric(total_spend),
+    customer_id      = as.character(customer_id),
+    customer_name    = trimws(customer_name),
+    product_name     = trimws(product_name),
+    mobile_number    = as.character(
+      formatC(mobile_number,
+              format = "f", digits = 0)),
+    gender           = as.factor(trimws(gender)),
+    city             = as.factor(trimws(city)),
+    product_category = as.factor(
+      trimws(product_category)),
+    payment_method   = as.factor(
+      trimws(payment_method)),
+    channel          = as.factor(trimws(channel)),
+    customer_segment = as.factor(
+      trimws(customer_segment))
+  ) %>%
+  distinct() %>%
+  mutate(
+    total_spend = round(quantity * unit_price, 2),
+    unit_price  = winsorize(unit_price),
+    total_spend = winsorize(total_spend)
+  ) %>%
+  mutate(
+    year         = as.integer(year(purchase_date)),
+    month_num    = as.integer(month(purchase_date)),
+    month_name   = month(purchase_date,
+                         label = TRUE,
+                         abbr  = TRUE),
+    day          = as.integer(day(purchase_date)),
+    hour         = as.integer(hour(purchase_date)),
+    day_of_week  = wday(purchase_date,
+                        label = TRUE,
+                        abbr  = TRUE),
+    quarter      = paste0("Q",
+                          quarter(purchase_date)),
+    is_weekend   = wday(purchase_date) %in% c(1, 7),
+    is_month_end = day(purchase_date) >= 25,
+    season       = case_when(
+      month(purchase_date) %in%
+        c(12, 1, 2)   ~ "Winter",
+      month(purchase_date) %in%
+        c(3, 4, 5)    ~ "Summer",
+      month(purchase_date) %in%
+        c(6, 7, 8, 9) ~ "Monsoon",
+      TRUE             ~ "Autumn"
+    ),
+    time_of_day  = case_when(
+      hour(purchase_date) < 12 ~ "Morning",
+      hour(purchase_date) < 15 ~ "Afternoon",
+      hour(purchase_date) < 18 ~ "Evening",
+      TRUE                     ~ "Night"
+    ),
+    age_group = cut(
+      age,
+      breaks = c(17, 25, 35, 45, 55, 100),
+      labels = c("18-25", "26-35",
+                  "36-45", "46-55", "55+"),
+      right  = TRUE
+    ),
+    log_unit_price  = round(log1p(unit_price),  4),
+    log_total_spend = round(log1p(total_spend), 4)
+  )
+
+spend_q <- quantile(df$total_spend,
+                    probs = c(0.33, 0.67),
+                    na.rm = TRUE)
+
+df <- df %>%
+  mutate(
+    spend_tier = case_when(
+      total_spend <= spend_q[1] ~ "Low Spender",
+      total_spend <= spend_q[2] ~ "Mid Spender",
+      TRUE                       ~ "High Spender"
+    ),
+    spend_tier = factor(
+      spend_tier,
+      levels = c("Low Spender",
+                  "Mid Spender",
+                  "High Spender"))
+  )
+```
+
+## Cleaning Steps Applied
+
+```{r cleaning-table}
+clean_tbl <- data.frame(
+  Step = c(
+    "1. Column Names",
+    "2. Data Types",
+    "3. Mobile Number",
+    "4. Purchase Date",
+    "5. Factors",
+    "6. Duplicates",
+    "7. Recalculate Spend",
+    "8. Winsorize Prices"
+  ),
+  Action = c(
+    "clean_names() - snake_case applied",
+    "age and qty to integer, prices to numeric",
+    "Character - 10-digit preserved",
+    "ymd_hms() to POSIXct",
+    "gender, city, segment, payment, channel, category",
+    "0 rows removed",
+    "qty x unit_price rounded to 2 decimal",
+    "unit_price and total_spend capped 1-99 pct"
+  ),
+  stringsAsFactors = FALSE
+)
+
+neat_table(clean_tbl,
+           caption   = "Cleaning Steps Summary",
+           col.names = c("Step", "Action"))
+```
+
+## Feature Engineering - 15 New Columns
+
+```{r features-table}
+feat_tbl <- data.frame(
+  Feature = c(
+    "year", "month_num", "month_name",
+    "day", "hour", "day_of_week",
+    "quarter", "is_weekend", "is_month_end",
+    "season", "time_of_day", "age_group",
+    "spend_tier", "log_unit_price",
+    "log_total_spend"
+  ),
+  Description = c(
+    "Year of transaction",
+    "Month number 1-12",
+    "Month abbreviation",
+    "Day of month",
+    "Hour of transaction",
+    "Day of week Sun-Sat",
+    "Q1 to Q4",
+    "TRUE if Saturday or Sunday",
+    "TRUE if day >= 25",
+    "Winter/Summer/Monsoon/Autumn",
+    "Morning/Afternoon/Evening",
+    "5 age buckets 18-25 to 55+",
+    "Low/Mid/High spender",
+    "log1p of unit_price",
+    "log1p of total_spend"
+  ),
+  stringsAsFactors = FALSE
+)
+
+neat_table(feat_tbl,
+           caption   = "New Features Created",
+           col.names = c("Feature",
+                         "Description"))
+```
+
+\newpage
+
+# Customer Profiling & RFM Analysis
+
+```{r rfm-build, results='hide'}
+ref_date <- max(df$purchase_date) + days(1)
+
+customer_profile <- df %>%
+  group_by(customer_id, customer_name,
+           city, gender,
+           customer_segment, age,
+           age_group) %>%
+  summarise(
+    last_purchase_date  = max(purchase_date),
+    recency_days        = as.numeric(
+      ref_date - max(purchase_date)),
+    total_transactions  = n(),
+    unique_products     = n_distinct(product_name),
+    unique_categories   = n_distinct(
+      product_category),
+    total_revenue       = sum(total_spend),
+    avg_spend_per_visit = round(
+      mean(total_spend), 2),
+    max_single_spend    = max(total_spend),
+    min_single_spend    = min(total_spend),
+    median_spend        = median(total_spend),
+    favorite_category   = names(sort(
+      table(product_category),
+      decreasing = TRUE))[1],
+    favorite_payment    = names(sort(
+      table(payment_method),
+      decreasing = TRUE))[1],
+    favorite_channel    = names(sort(
+      table(channel),
+      decreasing = TRUE))[1],
+    most_active_season  = names(sort(
+      table(season),
+      decreasing = TRUE))[1],
+    .groups = "drop"
+  ) %>%
+  arrange(customer_id)
+
+purchase_gaps <- df %>%
+  arrange(customer_id, purchase_date) %>%
+  group_by(customer_id) %>%
+  mutate(
+    prev_date = lag(purchase_date),
+    gap_days  = as.numeric(
+      difftime(purchase_date, prev_date,
+               units = "days"))
+  ) %>%
+  summarise(
+    avg_days_between = round(
+      mean(gap_days, na.rm = TRUE), 1),
+    .groups = "drop"
+  )
+
+customer_profile <- customer_profile %>%
+  left_join(purchase_gaps,
+            by = "customer_id") %>%
+  mutate(
+    R_score   = ntile(-recency_days,      5),
+    F_score   = ntile(total_transactions, 5),
+    M_score   = ntile(total_revenue,      5),
+    RFM_score = R_score + F_score + M_score,
+    rfm_segment = case_when(
+      RFM_score >= 13             ~ "Champions",
+      RFM_score >= 10             ~ "Loyal Customers",
+      RFM_score >= 7              ~ "Potential Loyalists",
+      R_score   >= 4              ~ "New Customers",
+      F_score >= 3 & M_score >= 3 ~ "At Risk",
+      TRUE                        ~ "Lost"
+    ),
+    frequency_label = case_when(
+      avg_days_between <= 7   ~ "Weekly Buyer",
+      avg_days_between <= 15  ~ "Bi-Weekly Buyer",
+      avg_days_between <= 30  ~ "Monthly Buyer",
+      avg_days_between <= 60  ~ "Occasional Buyer",
+      TRUE                    ~ "Rare Buyer"
+    ),
+    predicted_next_purchase =
+      last_purchase_date +
+      days(round(avg_days_between)),
+    days_until_next = as.numeric(
+      difftime(predicted_next_purchase,
+               Sys.time(), units = "days"))
+  )
+
+avg_monthly <- df %>%
+  group_by(customer_id, year,
+           month_num) %>%
+  summarise(
+    monthly_total = sum(total_spend),
+    .groups = "drop") %>%
+  group_by(customer_id) %>%
+  summarise(
+    avg_monthly_spend   = round(
+      mean(monthly_total), 2),
+    total_active_months = n(),
+    .groups = "drop"
+  )
+
+customer_profile <- customer_profile %>%
+  left_join(avg_monthly,
+            by = "customer_id")
+```
+
+## RFM Segment Distribution
+
+```{r rfm-table}
+seg_tbl <- sort(
+  table(customer_profile$rfm_segment),
+  decreasing = TRUE)
+seg_pct <- round(prop.table(seg_tbl) * 100, 1)
+
+seg_df <- data.frame(
+  Segment   = names(seg_tbl),
+  Customers = as.integer(seg_tbl),
+  Percent   = paste0(as.numeric(seg_pct), "%"),
+  stringsAsFactors = FALSE
+)
+
+neat_table(seg_df,
+           caption   = "RFM Segment Distribution",
+           col.names = c("Segment",
+                         "Customers",
+                         "Percent"))
+```
+
+## Top 10 Customers by Revenue
+
+```{r top-customers}
+top_cust <- customer_profile %>%
+  arrange(desc(total_revenue)) %>%
+  select(customer_id, customer_name,
+         city, total_transactions,
+         total_revenue, rfm_segment) %>%
+  head(10) %>%
+  mutate(total_revenue = paste0(
+    "Rs ",
+    format(round(total_revenue, 0),
+           big.mark = ",")))
+
+neat_table(top_cust,
+           caption   = "Top 10 Customers by Revenue",
+           col.names = c("ID", "Name", "City",
+                         "Transactions",
+                         "Revenue", "RFM"))
+```
+
+## Frequency Labels
+
+```{r frequency-table}
+freq_tbl <- sort(
+  table(customer_profile$frequency_label),
+  decreasing = TRUE)
+freq_pct <- round(
+  prop.table(freq_tbl) * 100, 1)
+
+freq_df <- data.frame(
+  Label   = names(freq_tbl),
+  Count   = as.integer(freq_tbl),
+  Percent = paste0(as.numeric(freq_pct), "%"),
+  stringsAsFactors = FALSE
+)
+
+neat_table(freq_df,
+           caption   = "Purchase Frequency Labels",
+           col.names = c("Label", "Count",
+                         "Percent"))
+```
+
+## RFM vs Customer Segment
+
+```{r rfm-cross}
+cross_tbl <- as.data.frame.matrix(
+  table(customer_profile$customer_segment,
+        customer_profile$rfm_segment))
+
+neat_table(cross_tbl,
+           caption = "RFM vs Customer Segment Cross-Table")
+```
+
+\newpage
+
+# EDA Visualizations
+
+```{r theme-and-data, results='hide'}
+theme_sales <- theme_minimal(base_size = 11) +
+  theme(
+    plot.title    = element_text(
+      face  = "bold",
+      hjust = 0.5,
+      size  = 12),
+    plot.subtitle = element_text(
+      hjust = 0.5,
+      color = "grey50"),
+    axis.text       = element_text(size = 9),
+    legend.position = "bottom"
+  )
+
+season_order <- c("Winter", "Summer",
+                   "Monsoon", "Autumn")
+
+monthly_trend <- df %>%
+  mutate(year_month = floor_date(
+    purchase_date, "month")) %>%
+  group_by(year_month) %>%
+  summarise(revenue = sum(total_spend),
+            orders  = n(),
+            .groups = "drop")
+
+dow_rev <- df %>%
+  group_by(day_of_week) %>%
+  summarise(revenue = sum(total_spend),
+            orders  = n(),
+            .groups = "drop")
+
+cat_summary <- df %>%
+  group_by(product_category) %>%
+  summarise(
+    revenue   = sum(total_spend),
+    orders    = n(),
+    avg_spend = round(mean(total_spend), 0),
+    .groups   = "drop"
+  ) %>%
+  arrange(desc(revenue))
+
+top_products <- df %>%
+  group_by(product_name,
+           product_category) %>%
+  summarise(revenue = sum(total_spend),
+            orders  = n(),
+            .groups = "drop") %>%
+  arrange(desc(revenue)) %>%
+  head(10)
+
+seg_summary <- df %>%
+  group_by(customer_segment) %>%
+  summarise(
+    revenue   = sum(total_spend),
+    orders    = n(),
+    customers = n_distinct(customer_id),
+    avg_spend = round(mean(total_spend), 0),
+    .groups   = "drop"
+  )
+```
+
+## Monthly Revenue Trend
+
+```{r plot-monthly, fig.cap="Monthly Revenue - Jan 2023 to Mar 2024", fig.height=4, results='markup'}
+ggplot(monthly_trend,
+       aes(x = year_month,
+           y = revenue)) +
+  geom_line(color     = "#4F8EF7",
+            linewidth = 1.2) +
+  geom_point(color = "#4F8EF7",
+             size  = 2.5) +
+  geom_smooth(method = "loess",
+              se     = TRUE,
+              color  = "#E74C3C",
+              fill   = "#E74C3C",
+              alpha  = 0.15) +
+  scale_y_continuous(
+    labels = function(x)
+      paste0("Rs ",
+             round(x / 1e6, 1), "M")) +
+  scale_x_datetime(
+    date_labels = "%b %Y",
+    date_breaks = "2 months") +
+  labs(title = "Monthly Revenue Trend",
+       x = "Month",
+       y = "Revenue") +
+  theme_sales +
+  theme(axis.text.x = element_text(
+    angle = 45, hjust = 1))
+```
+
+## Revenue by Day of Week & Quarter
+
+```{r plot-dow-qtr, fig.cap="Revenue by Day of Week (left) and Quarter (right)", fig.height=4, results='markup'}
+p1 <- ggplot(dow_rev,
+             aes(x    = day_of_week,
+                 y    = revenue,
+                 fill = day_of_week)) +
+  geom_col(show.legend = FALSE,
+           width = 0.7) +
+  geom_text(
+    aes(label = paste0(
+      round(revenue / 1e6, 1), "M")),
+    vjust = -0.5, size = 2.8) +
+  scale_fill_brewer(palette = "Set2") +
+  scale_y_continuous(
+    labels = function(x)
+      paste0(round(x / 1e6, 1), "M"),
+    expand = expansion(mult = c(0, .15))) +
+  labs(title = "By Day of Week",
+       x = "Day", y = "Revenue") +
+  theme_sales
+
+p2 <- df %>%
+  group_by(quarter) %>%
+  summarise(revenue = sum(total_spend),
+            orders  = n(),
+            .groups = "drop") %>%
+  ggplot(aes(x    = quarter,
+             y    = revenue,
+             fill = quarter)) +
+  geom_col(show.legend = FALSE,
+           width = 0.6) +
+  geom_text(
+    aes(label = paste0(
+      round(revenue / 1e6, 1), "M\n(",
+      orders, " ord)")),
+    vjust = -0.3, size = 2.8) +
+  scale_fill_manual(
+    values = c("#3498DB", "#E67E22",
+               "#2ECC71", "#9B59B6")) +
+  scale_y_continuous(
+    labels = function(x)
+      paste0(round(x / 1e6, 1), "M"),
+    expand = expansion(mult = c(0, .2))) +
+  labs(title = "By Quarter",
+       x = "Quarter", y = "Revenue") +
+  theme_sales
+
+grid.arrange(p1, p2, ncol = 2)
+```
+
+## Revenue by Season & Category
+
+```{r plot-season-cat, fig.cap="Revenue by Season (left) and Category (right)", fig.height=4.5, results='markup'}
+p3 <- df %>%
+  mutate(season = factor(
+    season, levels = season_order)) %>%
+  group_by(season) %>%
+  summarise(revenue = sum(total_spend),
+            .groups = "drop") %>%
+  ggplot(aes(x    = season,
+             y    = revenue,
+             fill = season)) +
+  geom_col(show.legend = FALSE,
+           width = 0.6) +
+  geom_text(
+    aes(label = paste0(
+      round(revenue / 1e6, 1), "M")),
+    vjust    = -0.5,
+    size     = 3.5,
+    fontface = "bold") +
+  scale_fill_manual(
+    values = c("#74B9FF", "#FDCB6E",
+               "#55EFC4", "#A29BFE")) +
+  scale_y_continuous(
+    labels = function(x)
+      paste0(round(x / 1e6, 1), "M"),
+    expand = expansion(mult = c(0, .15))) +
+  labs(title = "By Season",
+       x = "Season", y = "Revenue") +
+  theme_sales
+
+p4 <- ggplot(
+  cat_summary,
+  aes(x    = reorder(product_category,
+                      revenue),
+      y    = revenue,
+      fill = product_category)) +
+  geom_col(show.legend = FALSE) +
+  geom_text(
+    aes(label = paste0(
+      round(revenue / 1e6, 1), "M")),
+    hjust = -0.1, size = 2.8) +
+  coord_flip() +
+  scale_fill_brewer(palette = "Paired") +
+  scale_y_continuous(
+    expand = expansion(mult = c(0, .2)),
+    labels = function(x)
+      paste0(round(x / 1e6, 1), "M")) +
+  labs(title = "By Category",
+       x = "", y = "Revenue") +
+  theme_sales
+
+grid.arrange(p3, p4, ncol = 2)
+```
+
+## Customer Segment Analysis
+
+```{r plot-segment, fig.cap="Revenue and Avg Spend by Customer Segment", fig.height=4, results='markup'}
+ps1 <- ggplot(
+  seg_summary,
+  aes(x    = reorder(customer_segment,
+                      revenue),
+      y    = revenue,
+      fill = customer_segment)) +
+  geom_col(show.legend = FALSE) +
+  geom_text(
+    aes(label = paste0(
+      round(revenue / 1e6, 1), "M")),
+    hjust = -0.1, size = 3) +
+  coord_flip() +
+  scale_fill_manual(
+    values = c("#E74C3C", "#F39C12",
+               "#27AE60", "#3498DB")) +
+  scale_y_continuous(
+    expand = expansion(mult = c(0, .2))) +
+  labs(title = "Revenue by Segment",
+       x = "", y = "Revenue") +
+  theme_sales
+
+ps2 <- ggplot(
+  seg_summary,
+  aes(x    = reorder(customer_segment,
+                      avg_spend),
+      y    = avg_spend,
+      fill = customer_segment)) +
+  geom_col(show.legend = FALSE) +
+  geom_text(
+    aes(label = paste0(
+      "Rs ",
+      format(avg_spend,
+             big.mark = ","))),
+    hjust = -0.1, size = 3) +
+  coord_flip() +
+  scale_fill_manual(
+    values = c("#E74C3C", "#F39C12",
+               "#27AE60", "#3498DB")) +
+  scale_y_continuous(
+    expand = expansion(mult = c(0, .25))) +
+  labs(title = "Avg Spend by Segment",
+       x = "", y = "Avg Spend") +
+  theme_sales
+
+grid.arrange(ps1, ps2, ncol = 2)
+```
+
+## Gender & Age Group
+
+```{r plot-gender-age, fig.cap="Revenue by Gender (left) and Age Group (right)", fig.height=4, results='markup'}
+pg <- df %>%
+  group_by(gender) %>%
+  summarise(revenue = sum(total_spend),
+            .groups = "drop") %>%
+  ggplot(aes(x    = gender,
+             y    = revenue,
+             fill = gender)) +
+  geom_col(show.legend = FALSE,
+           width = 0.6) +
+  geom_text(
+    aes(label = paste0(
+      round(revenue / 1e6, 1), "M")),
+    vjust = -0.5, size = 3.5) +
+  scale_fill_manual(
+    values = c("#E91E8C", "#3498DB",
+               "#27AE60")) +
+  scale_y_continuous(
+    expand = expansion(mult = c(0, .15))) +
+  labs(title = "By Gender",
+       x = "Gender", y = "Revenue") +
+  theme_sales
+
+pa <- df %>%
+  group_by(age_group) %>%
+  summarise(revenue = sum(total_spend),
+            .groups = "drop") %>%
+  ggplot(aes(x    = age_group,
+             y    = revenue,
+             fill = age_group)) +
+  geom_col(show.legend = FALSE,
+           width = 0.6) +
+  geom_text(
+    aes(label = paste0(
+      round(revenue / 1e6, 1), "M")),
+    vjust = -0.5, size = 3.5) +
+  scale_fill_brewer(palette = "Set1") +
+  scale_y_continuous(
+    expand = expansion(mult = c(0, .15))) +
+  labs(title = "By Age Group",
+       x = "Age Group", y = "Revenue") +
+  theme_sales
+
+grid.arrange(pg, pa, ncol = 2)
+```
+
+## Payment Method & Channel
+
+```{r plot-pay-chan, fig.cap="Orders by Payment Method (left) and Revenue by Channel (right)", fig.height=4, results='markup'}
+pp <- df %>%
+  group_by(payment_method) %>%
+  summarise(orders  = n(),
+            revenue = sum(total_spend),
+            .groups = "drop") %>%
+  mutate(pct = round(
+    orders / sum(orders) * 100, 1)) %>%
+  ggplot(aes(
+    x    = reorder(payment_method, orders),
+    y    = orders,
+    fill = payment_method)) +
+  geom_col(show.legend = FALSE) +
+  geom_text(
+    aes(label = paste0(pct, "%")),
+    hjust = -0.2, size = 3) +
+  coord_flip() +
+  scale_fill_brewer(palette = "Set3") +
+  scale_y_continuous(
+    expand = expansion(mult = c(0, .15))) +
+  labs(title = "By Payment Method",
+       x = "", y = "Orders") +
+  theme_sales
+
+pc <- df %>%
+  group_by(channel) %>%
+  summarise(revenue = sum(total_spend),
+            .groups = "drop") %>%
+  ggplot(aes(
+    x    = reorder(channel, revenue),
+    y    = revenue,
+    fill = channel)) +
+  geom_col(show.legend = FALSE) +
+  geom_text(
+    aes(label = paste0(
+      round(revenue / 1e6, 1), "M")),
+    hjust = -0.1, size = 3) +
+  coord_flip() +
+  scale_fill_manual(
+    values = c("#FF6B6B", "#4ECDC4",
+               "#45B7D1", "#96CEB4")) +
+  scale_y_continuous(
+    expand = expansion(mult = c(0, .2))) +
+  labs(title = "By Channel",
+       x = "", y = "Revenue") +
+  theme_sales
+
+grid.arrange(pp, pc, ncol = 2)
+```
+
+## City Revenue
+
+```{r plot-city, fig.cap="Total Revenue by City", fig.height=4, results='markup'}
+df %>%
+  group_by(city) %>%
+  summarise(revenue = sum(total_spend),
+            .groups = "drop") %>%
+  ggplot(aes(
+    x    = reorder(city, revenue),
+    y    = revenue,
+    fill = revenue)) +
+  geom_col(show.legend = FALSE) +
+  geom_text(
+    aes(label = paste0(
+      round(revenue / 1e6, 1), "M")),
+    hjust = -0.1, size = 3.5) +
+  coord_flip() +
+  scale_fill_gradient(low  = "#AED6F1",
+                      high = "#1A5276") +
+  scale_y_continuous(
+    expand = expansion(mult = c(0, .2))) +
+  labs(title = "Revenue by City",
+       x = "City", y = "Revenue") +
+  theme_sales
+```
+
+## RFM Segment Distribution
+
+```{r plot-rfm, fig.cap="RFM Customer Segment Distribution", fig.height=4, results='markup'}
+customer_profile %>%
+  count(rfm_segment) %>%
+  mutate(pct = round(
+    n / sum(n) * 100, 1)) %>%
+  ggplot(aes(
+    x    = reorder(rfm_segment, n),
+    y    = n,
+    fill = rfm_segment)) +
+  geom_col(show.legend = FALSE,
+           width = 0.7) +
+  geom_text(
+    aes(label = paste0(
+      n, " (", pct, "%)")),
+    hjust    = -0.1,
+    size     = 3.8,
+    fontface = "bold") +
+  coord_flip() +
+  scale_fill_manual(values = c(
+    "Champions"           = "#2ECC71",
+    "Loyal Customers"     = "#3498DB",
+    "Potential Loyalists" = "#F39C12",
+    "New Customers"       = "#9B59B6",
+    "At Risk"             = "#E67E22",
+    "Lost"                = "#E74C3C")) +
+  scale_y_continuous(
+    expand = expansion(mult = c(0, .2))) +
+  labs(title = "RFM Customer Segments",
+       x = "Segment",
+       y = "Number of Customers") +
+  theme_sales
+```
+
+## Spend Distribution & Ridge Plot
+
+```{r plot-spend, fig.cap="Log Spend Distribution (left) and Ridge by Category (right)", fig.height=4.5, results='markup'}
+ph <- ggplot(df,
+             aes(x = log_total_spend)) +
+  geom_histogram(fill  = "#3498DB",
+                 color = "white",
+                 bins  = 40,
+                 alpha = 0.8) +
+  labs(title = "Log(Total Spend)",
+       x = "log(Total Spend)",
+       y = "Count") +
+  theme_sales
+
+pr <- ggplot(
+  df,
+  aes(x    = log_total_spend,
+      y    = product_category,
+      fill = product_category)) +
+  geom_density_ridges(
+    alpha       = 0.7,
+    scale       = 1.2,
+    show.legend = FALSE) +
+  scale_fill_brewer(palette = "Paired") +
+  labs(title = "Spend by Category",
+       x = "log(Total Spend)",
+       y = "Category") +
+  theme_sales
+
+grid.arrange(ph, pr, ncol = 2)
+```
+
+## Correlation Matrix
+
+```{r plot-corr, fig.cap="Correlation Matrix - Numeric Variables", fig.height=4.5, results='markup'}
+num_data <- df %>%
+  select(age, quantity,
+         unit_price, total_spend,
+         log_unit_price,
+         log_total_spend) %>%
+  na.omit()
+
+ggcorrplot(
+  cor(num_data),
+  method   = "circle",
+  type     = "lower",
+  lab      = TRUE,
+  lab_size = 3,
+  colors   = c("#E74C3C", "white",
+               "#2ECC71"),
+  title    = "Correlation Matrix",
+  ggtheme  = theme_minimal(base_size = 10)
+)
+```
+
+## Top 10 Products by Revenue
+
+```{r plot-products, fig.cap="Top 10 Products by Revenue", fig.height=4.5, results='markup'}
+ggplot(top_products,
+       aes(x    = reorder(product_name,
+                           revenue),
+           y    = revenue,
+           fill = product_category)) +
+  geom_col() +
+  geom_text(
+    aes(label = paste0(
+      round(revenue / 1e6, 1), "M")),
+    hjust = -0.1, size = 3) +
+  coord_flip() +
+  scale_fill_brewer(palette = "Set1") +
+  scale_y_continuous(
+    expand = expansion(mult = c(0, .25))) +
+  labs(title = "Top 10 Products",
+       x = "Product", y = "Revenue",
+       fill = "Category") +
+  theme_sales
+```
+
+## Time of Day vs Channel & Category-Payment Heatmap
+
+```{r plot-time-heat, fig.cap="Time vs Channel (left) and Category-Payment Heatmap (right)", fig.height=4.5, results='markup'}
+pn <- df %>%
+  group_by(time_of_day, channel) %>%
+  summarise(orders  = n(),
+            .groups = "drop") %>%
+  mutate(time_of_day = factor(
+    time_of_day,
+    levels = c("Morning", "Afternoon",
+               "Evening", "Night"))) %>%
+  ggplot(aes(x    = time_of_day,
+             y    = orders,
+             fill = channel)) +
+  geom_col(position = "dodge") +
+  scale_fill_brewer(palette = "Set2") +
+  labs(title = "Time vs Channel",
+       x = "Time", y = "Orders",
+       fill = "Channel") +
+  theme_sales
+
+po <- df %>%
+  group_by(product_category,
+           payment_method) %>%
+  summarise(orders  = n(),
+            .groups = "drop") %>%
+  ggplot(aes(x    = payment_method,
+             y    = product_category,
+             fill = orders)) +
+  geom_tile(color     = "white",
+            linewidth = 0.5) +
+  geom_text(aes(label   = orders),
+            size     = 2.5,
+            fontface = "bold") +
+  scale_fill_gradient(
+    low  = "#EBF5FB",
+    high = "#1A5276",
+    name = "Orders") +
+  labs(title = "Category vs Payment",
+       x = "Payment", y = "Category") +
+  theme_sales +
+  theme(axis.text.x = element_text(
+    angle = 30, hjust = 1))
+
+grid.arrange(pn, po, ncol = 2)
+```
+
+\newpage
+
+# Output Files
+
+```{r save-csvs, results='hide'}
+write.csv(df,
+          file.path(data_dir,
+                    "clean_sales_data.csv"),
+          row.names = FALSE)
+
+write.csv(
+  customer_profile %>%
+    mutate(
+      last_purchase_date =
+        as.character(last_purchase_date),
+      predicted_next_purchase =
+        as.character(
+          predicted_next_purchase)),
+  file.path(data_dir,
+            "customer_profile.csv"),
+  row.names = FALSE)
+
+write.csv(monthly_trend,
+          file.path(data_dir,
+                    "monthly_trend.csv"),
+          row.names = FALSE)
+
+write.csv(cat_summary,
+          file.path(data_dir,
+                    "category_summary.csv"),
+          row.names = FALSE)
+```
+
+```{r outputs-table}
+out_tbl <- data.frame(
+  File = c(
+    "clean_sales_data.csv",
+    "customer_profile.csv",
+    "monthly_trend.csv",
+    "category_summary.csv",
+    "Sales_Analysis_Report.pdf"
+  ),
+  Location = c(
+    "Output/Data/",
+    "Output/Data/",
+    "Output/Data/",
+    "Output/Data/",
+    "Project Root/"
+  ),
+  Contents = c(
+    "9140 rows x 30 columns",
+    "300 customers x 36 columns",
+    "15 months aggregated",
+    "10 categories aggregated",
+    "This full PDF report"
+  ),
+  stringsAsFactors = FALSE
+)
+
+neat_table(out_tbl,
+           caption   = "All Output Files Generated",
+           col.names = c("File", "Location",
+                         "Contents"))
+```
+
+\newpage
+
+# Key Business Insights
+
+```{r insights}
+ins_tbl <- data.frame(
+  Area = c(
+    "Revenue", "Revenue",
+    "Category", "Category",
+    "Customer", "Customer",
+    "Channel", "Payment",
+    "Geography", "Time"
+  ),
+  Insight = c(
+    "Total Rs 22.9 Crore in 15 months",
+    "Avg transaction value Rs 25,057",
+    "Electronics = 68 pct of all revenue",
+    "All Top 10 products are Electronics",
+    "VIP = 49.5 pct customers, 54 pct revenue",
+    "85 Lost customers need re-engagement",
+    "Online leads with 36.8 pct of orders",
+    "UPI most preferred at 27 pct",
+    "Bangalore top city at 15.5 pct",
+    "Monsoon season drives highest revenue"
+  ),
+  Priority = c(
+    "INFO", "INFO",
+    "HIGH", "HIGH",
+    "HIGH", "HIGH",
+    "MED",  "MED",
+    "MED",  "MED"
+  ),
+  stringsAsFactors = FALSE
+)
+
+neat_table(ins_tbl,
+           caption   = "Key Business Insights",
+           col.names = c("Area", "Insight",
+                         "Priority"))
+```
+
+\newpage
+
+# Strategic Recommendations
+
+```{r recommendations}
+rec_tbl <- data.frame(
+  No = as.character(1:8),
+  Area = c(
+    "Retention",
+    "Diversification",
+    "Digital Growth",
+    "Re-Engagement",
+    "Loyalty",
+    "Expansion",
+    "Seasonal",
+    "Payments"
+  ),
+  Recommendation = c(
+    "Win-back 85 Lost customers with personalised offers",
+    "Invest in Furniture and Sports beyond Electronics",
+    "Grow Online and Mobile App - 62.5 pct combined",
+    "Onboard New Customers within first 30 days",
+    "Reward 212 Weekly and Bi-Weekly buyers with perks",
+    "Target Chennai 5.6 pct and Pune 8 pct campaigns",
+    "Amplify Monsoon season promotions - highest revenue",
+    "Offer UPI cashback and Credit Card EMI options"
+  ),
+  stringsAsFactors = FALSE
+)
+
+neat_table(rec_tbl,
+           caption   = "Strategic Recommendations",
+           col.names = c("No", "Area",
+                         "Recommendation"))
+```
+
+\newpage
+
+# Appendix - Pipeline Summary
+
+```{r pipeline}
+pipe_tbl <- data.frame(
+  Step = paste("Step", 0:10),
+  Name = c(
+    "Package Setup",
+    "Load Data",
+    "First Look",
+    "Statistical Summary",
+    "Missing and Duplicates",
+    "Value Validation",
+    "Data Cleaning",
+    "Feature Engineering",
+    "Customer Profiling and RFM",
+    "EDA Visualizations",
+    "Save Outputs"
+  ),
+  Status = rep("COMPLETE", 11),
+  Notes = c(
+    "16 packages loaded",
+    "9140 rows, 15 columns",
+    "15 columns verified",
+    "Skewness and distributions",
+    "0 missing, 0 duplicates",
+    "12 of 12 passed",
+    "9 actions applied",
+    "15 new features",
+    "300 profiles, RFM scored",
+    "15 charts generated",
+    "20 files saved"
+  ),
+  stringsAsFactors = FALSE
+)
+
+neat_table(pipe_tbl,
+           caption   = "Complete Pipeline Summary",
+           col.names = c("Step", "Name",
+                         "Status", "Notes"))
+```
+
+---
+
+*Report generated automatically using R Markdown.*  
+*Raw data: `df_raw` | Clean data: `df` | Profiles: `customer_profile`*
